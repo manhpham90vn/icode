@@ -1,0 +1,25 @@
+[package]
+name = "icode"
+version = "0.1.0"
+edition = "2021"
+description = "Multi-PC Telegram Assistant"
+
+[[bin]]
+name = "icode"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+teloxide = { version = "0.13", features = ["macros"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+clap = { version = "4", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+dirs = "6"
+gethostname = "0.5"
+which = "6"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+rand = "0.8"
+anyhow = "1"
