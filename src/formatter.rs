@@ -1,4 +1,19 @@
-/// Maximum Telegram message length
+/// Escape MarkdownV2 special characters
+/// Characters that must be escaped: _ * [ ] ( ) ~ ` > # + - = | { } . !
+pub fn escape_markdown(text: &str) -> String {
+    let mut result = String::with_capacity(text.len());
+    for ch in text.chars() {
+        match ch {
+            '_' | '*' | '[' | ']' | '(' | ')' | '~' | '`' | '>' | '#' | '+' | '-' | '=' | '|'
+            | '{' | '}' | '.' | '!' => {
+                result.push('\\');
+                result.push(ch);
+            }
+            _ => result.push(ch),
+        }
+    }
+    result
+}
 const MAX_MSG_LEN: usize = 4096;
 
 /// Format command result for Telegram
@@ -64,12 +79,13 @@ pub fn format_help(pc_name: &str, bot_username: &str) -> String {
     format!(
         r#"📖 *Help — {pc_name}*
 
+*AI Agent \(mặc định\):*
+Gửi trực tiếp: `fix bug in main.rs`
+Hoặc mention: `@{bot_username} fix bug in main.rs`
+
 *Shell \(mention bot\):*
 `@{bot_username} exec ls \-la` — chạy shell
 `@{bot_username} cd /path` — đổi work dir
-
-*Agent task:*
-`@{bot_username} ai fix bug` — target AI task
 
 *Hệ thống:*
 `@{bot_username} status` hoặc `@all status`

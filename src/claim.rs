@@ -84,6 +84,7 @@ pub async fn try_claim(
 /// Update the claim message with the final result
 pub async fn update_claim(bot: &Bot, claim_msg: &Message, result_text: &str) -> Result<()> {
     bot.edit_message_text(claim_msg.chat.id, claim_msg.id, result_text)
+        .parse_mode(teloxide::types::ParseMode::MarkdownV2)
         .await?;
     Ok(())
 }

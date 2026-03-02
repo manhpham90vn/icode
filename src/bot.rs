@@ -19,7 +19,7 @@ enum ParsedCommand {
     ChangeDir { path: String },
     /// @bot_username exec <command> — shell targeted at this bot
     ShellMention { command: String },
-    /// @bot_username ai <prompt>
+    /// @bot_username ai <prompt> or just text
     AgentQueue { prompt: String },
     /// @bot_username status
     StatusThisBot,
@@ -133,8 +133,17 @@ fn parse_command(text: &str, bot_username: &str, msg: &Message) -> ParsedCommand
             };
         }
 
-        // Return Help for any unrecognized command directed at the bot
-        return ParsedCommand::Help;
+        // Any other text after mention → treat as AI prompt (default behavior)
+        return ParsedCommand::AgentQueue {
+            prompt: command,
+        };
+    }
+
+    // No mention but has text → treat as AI prompt (default behavior)
+    if !text.is_empty() {
+        return ParsedCommand::AgentQueue {
+            prompt: text.to_string(),
+        };
     }
 
     ParsedCommand::Ignore
@@ -544,11 +553,16 @@ async fn handle_agent(
 
     match executor::agent::run(&agent, prompt, work_dir, config.agent_timeout_secs).await {
         Ok(summary) => {
-            let result_text = format!("✅ [{pc_name} · {agent}]\n📁 {work_dir}\n{summary}");
+            let escaped_summary = formatter::escape_markdown(&summary);
+            let escaped_work_dir = formatter::escape_markdown(work_dir);
+            let result_text = format!("✅ [{pc_name} · {agent}]\n📁 {escaped_work_dir}\n{escaped_summary}");
             let _ = claim::update_claim(bot, &status_msg, &result_text).await;
         }
         Err(e) => {
-            let error_text = format!("❌ [{pc_name} · {agent}]\n📁 {work_dir}\nError: {e}");
+            let error_str = format!("{e}");
+            let escaped_error = formatter::escape_markdown(&error_str);
+            let escaped_work_dir = formatter::escape_markdown(work_dir);
+            let error_text = format!("❌ [{pc_name} · {agent}]\n📁 {escaped_work_dir}\nError: {escaped_error}");
             let _ = claim::update_claim(bot, &status_msg, &error_text).await;
         }
     }
