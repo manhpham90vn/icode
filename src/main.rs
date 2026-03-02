@@ -14,8 +14,6 @@ enum Cli {
     Run,
     /// Interactive setup (token, chat ID, tên PC, agent priority)
     Setup,
-    /// Cài SKILL.md vào workspace hiện tại
-    Init,
 }
 
 #[tokio::main]
@@ -35,21 +33,5 @@ async fn main() {
                 std::process::exit(1);
             }
         }
-        Cli::Init => {
-            if let Err(e) = init_skill() {
-                eprintln!("❌ Init error: {e}");
-                std::process::exit(1);
-            }
-        }
     }
-}
-
-/// Install SKILL.md into current workspace
-fn init_skill() -> anyhow::Result<()> {
-    let skill_dir = std::env::current_dir()?.join(".agent/skills/icode");
-    std::fs::create_dir_all(&skill_dir)?;
-    let skill_path = skill_dir.join("SKILL.md");
-    std::fs::write(&skill_path, include_str!("../skill/SKILL.md"))?;
-    println!("✅ Installed SKILL.md at {}", skill_path.display());
-    Ok(())
 }

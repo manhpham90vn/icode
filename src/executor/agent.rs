@@ -31,12 +31,7 @@ pub struct ResultFile {
 }
 
 /// Run an agent task: write task file, spawn agent, poll result
-pub async fn run(
-    agent: &str,
-    prompt: &str,
-    work_dir: &str,
-    timeout_secs: u64,
-) -> Result<String> {
+pub async fn run(agent: &str, prompt: &str, work_dir: &str, timeout_secs: u64) -> Result<String> {
     let task_id = Uuid::new_v4().to_string();
     let tasks_dir = Config::tasks_dir()?;
 
@@ -51,7 +46,12 @@ pub async fn run(
     };
     let task_json = serde_json::to_string_pretty(&task)?;
     std::fs::write(&task_file_path, &task_json)?;
-    info!(agent, task_id, "Task file written: {}", task_file_path.display());
+    info!(
+        agent,
+        task_id,
+        "Task file written: {}",
+        task_file_path.display()
+    );
 
     // 2. Install SKILL.md into work_dir if not present
     install_skill(work_dir)?;
@@ -151,4 +151,3 @@ fn cleanup_task_files(task_path: &Path, result_path: &Path) {
     let _ = std::fs::remove_file(task_path);
     let _ = std::fs::remove_file(result_path);
 }
-

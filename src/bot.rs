@@ -17,26 +17,22 @@ use crate::formatter;
 enum ParsedCommand {
     /// @bot_username cd /path — change work dir
     ChangeDir { path: String },
-    /// @bot_username <command> — shell targeted at this bot
+    /// @bot_username exec <command> — shell targeted at this bot
     ShellMention { command: String },
-    /// plain text — agent queue/claim
+    /// @bot_username ai <prompt>
     AgentQueue { prompt: String },
-    /// /status@pc_name or /status *
-    Status { target: Target },
-    /// /cancel@pc_name
-    Cancel { target: String },
-    /// /help
+    /// @bot_username status
+    StatusThisBot,
+    /// @all status
+    StatusAll,
+    /// @bot_username cancel
+    Cancel,
+    /// @bot_username help
     Help,
     /// Claim message from another bot (starts with 🔒)
     ClaimMarker,
     /// Unknown / ignored
     Ignore,
-}
-
-#[derive(Debug)]
-enum Target {
-    Specific(String),
-    All,
 }
 
 /// Extract mention target from message entities.
@@ -47,15 +43,18 @@ fn extract_mention(msg: &Message, bot_username: &str) -> Option<String> {
 
     for entity in entities {
         if let MessageEntityKind::Mention = entity.kind {
-            let start = entity.offset as usize;
-            let end = start + entity.length as usize;
+            let start = entity.offset;
+            let end = start + entity.length;
 
             // Extract mention text (offset/length are in UTF-16 code units, but for ASCII @username it's safe)
             if end <= text.len() {
                 let mention = &text[start..end];
                 let username = mention.trim_start_matches('@');
 
-                info!("Found mention: '{}', comparing with bot_username: '{}'", username, bot_username);
+                info!(
+                    "Found mention: '{}', comparing with bot_username: '{}'",
+                    username, bot_username
+                );
 
                 if username.eq_ignore_ascii_case(bot_username) {
                     return Some(username.to_string());
@@ -70,39 +69,18 @@ fn extract_mention(msg: &Message, bot_username: &str) -> Option<String> {
 fn parse_command(text: &str, bot_username: &str, msg: &Message) -> ParsedCommand {
     let text = text.trim();
 
-    info!("Parsing command: '{}', bot_username: '{}'", text, bot_username);
+    info!(
+        "Parsing command: '{}', bot_username: '{}'",
+        text, bot_username
+    );
 
     // Claim marker from other bots
     if text.starts_with(CLAIM_PREFIX) {
         return ParsedCommand::ClaimMarker;
     }
 
-    // /help
-    if text == "/help" || text.starts_with("/help@") {
-        return ParsedCommand::Help;
-    }
-
-    // /status@pc_name or /status *
-    if let Some(rest) = text.strip_prefix("/status") {
-        if let Some(pc) = rest.strip_prefix('@') {
-            return ParsedCommand::Status {
-                target: Target::Specific(pc.trim().to_string()),
-            };
-        }
-        if rest.trim() == "*" || rest.trim_start().starts_with('*') {
-            return ParsedCommand::Status { target: Target::All };
-        }
-        return ParsedCommand::Ignore;
-    }
-
-    // /cancel@pc_name
-    if let Some(rest) = text.strip_prefix("/cancel") {
-        if let Some(pc) = rest.strip_prefix('@') {
-            return ParsedCommand::Cancel {
-                target: pc.trim().to_string(),
-            };
-        }
-        return ParsedCommand::Ignore;
+    if text.to_lowercase() == "@all status" {
+        return ParsedCommand::StatusAll;
     }
 
     // @bot_username <command> — mention targeting this bot
@@ -119,21 +97,44 @@ fn parse_command(text: &str, bot_username: &str, msg: &Message) -> ParsedCommand
             return ParsedCommand::Ignore;
         }
 
+        info!("After strip mention, command is: '{}'", command);
+
         // cd /path → change work dir
-        if let Some(path) = command.strip_prefix("cd ") {
-            return ParsedCommand::ChangeDir {
-                path: path.trim().to_string(),
+        if let Some(stripped) = command.strip_prefix("cd ") {
+            let path = stripped.trim();
+            if !path.is_empty() {
+                return ParsedCommand::ChangeDir {
+                    path: path.to_string(),
+                };
+            }
+        }
+
+        if let Some(cmd) = command.strip_prefix("exec ") {
+            return ParsedCommand::ShellMention {
+                command: cmd.trim().to_string(),
             };
         }
 
-        return ParsedCommand::ShellMention { command };
-    }
+        if command == "status" {
+            return ParsedCommand::StatusThisBot;
+        }
 
-    // Plain text — agent queue
-    if !text.is_empty() && !text.starts_with('/') {
-        return ParsedCommand::AgentQueue {
-            prompt: text.to_string(),
-        };
+        if command == "cancel" {
+            return ParsedCommand::Cancel;
+        }
+
+        if command == "help" {
+            return ParsedCommand::Help;
+        }
+
+        if let Some(prompt) = command.strip_prefix("ai ") {
+            return ParsedCommand::AgentQueue {
+                prompt: prompt.trim().to_string(),
+            };
+        }
+
+        // Return Help for any unrecognized command directed at the bot
+        return ParsedCommand::Help;
     }
 
     ParsedCommand::Ignore
@@ -230,11 +231,7 @@ async fn handle_message(
         None => return Ok(()),
     };
 
-    let from_id = msg
-        .from
-        .as_ref()
-        .map(|u| u.id.0 as i64)
-        .unwrap_or(0);
+    let from_id = msg.from.as_ref().map(|u| u.id.0 as i64).unwrap_or(0);
 
     // Track claim markers from other bots (before owner check)
     let parsed = parse_command(text, &bot_username, &msg);
@@ -271,9 +268,11 @@ async fn handle_message(
                     let _ = bot
                         .send_message(
                             chat_id,
-                            format!("❌ [{pc_name}] Path không tồn tại: `{}`", target_path.display()),
+                            format!(
+                                "❌ [{pc_name}] Path không tồn tại: {}",
+                                target_path.display()
+                            ),
                         )
-                        .parse_mode(ParseMode::MarkdownV2)
                         .reply_parameters(ReplyParameters::new(msg.id))
                         .await;
                     return Ok(());
@@ -293,16 +292,15 @@ async fn handle_message(
             let _ = bot
                 .send_message(
                     chat_id,
-                    format!("📁 [{pc_name}] work_dir → `{new_dir}`"),
+                    format!("📁 [{pc_name}] đã đổi work_dir sang:\n{}", new_dir),
                 )
-                .parse_mode(ParseMode::MarkdownV2)
                 .reply_parameters(ReplyParameters::new(msg.id))
                 .await;
         }
 
         ParsedCommand::ShellMention { command } => {
             let work_dir = state.lock().await.work_dir.clone();
-            handle_shell(&bot, chat_id, msg.id, pc_name, &command, &work_dir, &config).await;
+            handle_shell(&bot, chat_id, msg.id, &command, &work_dir, &config).await;
         }
 
         ParsedCommand::AgentQueue { prompt } => {
@@ -319,40 +317,32 @@ async fn handle_message(
             .await;
         }
 
-        ParsedCommand::Status { target } => {
-            let should_reply = match &target {
-                Target::All => true,
-                Target::Specific(t) => t.eq_ignore_ascii_case(pc_name),
-            };
-            if should_reply {
-                let work_dir = state.lock().await.work_dir.clone();
-                let uptime = start_time.elapsed().as_secs();
-                let available = agent_selector::list_available(&config.agent_priority);
-                let status_text = formatter::format_status(
-                    pc_name,
-                    uptime,
-                    &config.agent_priority,
-                    &available,
-                    &work_dir,
-                );
-                let _ = bot
-                    .send_message(chat_id, &status_text)
-                    .parse_mode(ParseMode::MarkdownV2)
-                    .reply_parameters(ReplyParameters::new(msg.id))
-                    .await;
-            }
+        ParsedCommand::StatusThisBot | ParsedCommand::StatusAll => {
+            let work_dir = state.lock().await.work_dir.clone();
+            let uptime = start_time.elapsed().as_secs();
+            let available = agent_selector::list_available(&config.agent_priority);
+            let status_text = formatter::format_status(
+                pc_name,
+                uptime,
+                &config.agent_priority,
+                &available,
+                &work_dir,
+            );
+            let _ = bot
+                .send_message(chat_id, &status_text)
+                .parse_mode(ParseMode::MarkdownV2)
+                .reply_parameters(ReplyParameters::new(msg.id))
+                .await;
         }
 
-        ParsedCommand::Cancel { target } => {
-            if target.eq_ignore_ascii_case(pc_name) {
-                let _ = bot
-                    .send_message(
-                        chat_id,
-                        format!("⚠️ [{pc_name}] Cancel not yet implemented"),
-                    )
-                    .reply_parameters(ReplyParameters::new(msg.id))
-                    .await;
-            }
+        ParsedCommand::Cancel => {
+            let _ = bot
+                .send_message(
+                    chat_id,
+                    format!("⚠️ [{pc_name}] Cancel not yet implemented"),
+                )
+                .reply_parameters(ReplyParameters::new(msg.id))
+                .await;
         }
 
         ParsedCommand::Help => {
@@ -375,17 +365,17 @@ async fn handle_shell(
     bot: &Bot,
     chat_id: ChatId,
     msg_id: MessageId,
-    pc_name: &str,
     command: &str,
     work_dir: &str,
     config: &Config,
 ) {
+    let pc_name = &config.pc_name;
     info!(pc_name, command, work_dir, "Executing shell command");
 
     let running_msg = match bot
         .send_message(
             chat_id,
-            &format!("⏳ [{pc_name}] `{command}`\n📁 `{work_dir}`"),
+            format!("⏳ [{pc_name}] `{command}`\n📁 `{work_dir}`"),
         )
         .parse_mode(ParseMode::MarkdownV2)
         .reply_parameters(ReplyParameters::new(msg_id))
@@ -402,48 +392,53 @@ async fn handle_shell(
     let running_msg_chat = running_msg.chat.id;
     let running_msg_id = running_msg.id;
     let pc_name_owned = pc_name.to_string();
+    let command_owned = command.to_string();
     let work_dir_owned = work_dir.to_string();
     let last_update = Arc::new(Mutex::new(Instant::now()));
 
-    let result = executor::shell::run(
-        command,
-        work_dir,
-        config.shell_timeout_secs,
-        |output| {
-            let bot = bot_clone.clone();
-            let output = output.to_string();
-            let pc_name = pc_name_owned.clone();
-            let work_dir = work_dir_owned.clone();
-            let last_update = last_update.clone();
-            let msg_chat = running_msg_chat;
-            let msg_id = running_msg_id;
-            tokio::spawn(async move {
-                let mut last = last_update.lock().await;
-                if last.elapsed().as_secs() < 2 {
-                    return;
-                }
-                *last = Instant::now();
-                drop(last);
+    let result = executor::shell::run(command, work_dir, config.shell_timeout_secs, |output| {
+        let bot = bot_clone.clone();
+        let output = output.to_string();
+        let pc_name = pc_name_owned.clone();
+        let command_owned = command_owned.clone();
+        let work_dir = work_dir_owned.clone();
+        let last_update = last_update.clone();
+        let msg_chat = running_msg_chat;
+        let msg_id = running_msg_id;
+        tokio::spawn(async move {
+            let mut last = last_update.lock().await;
+            if last.elapsed().as_secs() < 2 {
+                return;
+            }
+            *last = Instant::now();
+            drop(last);
 
-                let parts = formatter::format_result(&pc_name, "shell", &output, &work_dir);
-                if let Some(text) = parts.first() {
-                    let _ = bot.edit_message_text(msg_chat, msg_id, text).await;
-                }
-            });
-        },
-    )
+            let parts =
+                formatter::format_result(&pc_name, "shell", &command_owned, &output, &work_dir);
+            if let Some(text) = parts.first() {
+                let _ = bot
+                    .edit_message_text(msg_chat, msg_id, text)
+                    .parse_mode(ParseMode::MarkdownV2)
+                    .await;
+            }
+        });
+    })
     .await;
 
     match result {
         Ok(output) => {
-            let parts = formatter::format_result(pc_name, "shell", &output, work_dir);
+            let parts = formatter::format_result(pc_name, "shell", command, &output, work_dir);
             for (i, part) in parts.iter().enumerate() {
                 if i == 0 {
                     let _ = bot
                         .edit_message_text(running_msg.chat.id, running_msg.id, part)
+                        .parse_mode(ParseMode::MarkdownV2)
                         .await;
                 } else {
-                    let _ = bot.send_message(chat_id, part).await;
+                    let _ = bot
+                        .send_message(chat_id, part)
+                        .parse_mode(ParseMode::MarkdownV2)
+                        .await;
                 }
             }
         }
@@ -492,7 +487,16 @@ async fn handle_agent_queue(
         }
     };
 
-    handle_agent(bot, chat_id, msg_id, pc_name, prompt, work_dir, config, Some(&claim_msg)).await;
+    handle_agent(
+        bot,
+        chat_id,
+        msg_id,
+        prompt,
+        work_dir,
+        config,
+        Some(&claim_msg),
+    )
+    .await;
 }
 
 /// Handle agent execution
@@ -500,17 +504,17 @@ async fn handle_agent(
     bot: &Bot,
     chat_id: ChatId,
     msg_id: MessageId,
-    pc_name: &str,
     prompt: &str,
     work_dir: &str,
     config: &Config,
     claim_msg: Option<&Message>,
 ) {
+    let pc_name = &config.pc_name;
     let agent = match agent_selector::select_agent(&config.agent_priority) {
         Some(a) => a,
         None => {
             let _ = bot
-                .send_message(chat_id, &format!("⚠️ [{pc_name}] No agent available"))
+                .send_message(chat_id, format!("⚠️ [{pc_name}] No agent available"))
                 .reply_parameters(ReplyParameters::new(msg_id))
                 .await;
             return;
@@ -525,7 +529,7 @@ async fn handle_agent(
         match bot
             .send_message(
                 chat_id,
-                &format!("🔒 [{pc_name}] đang xử lý ({agent})...\n📁 {work_dir}"),
+                format!("🔒 [{pc_name}] đang xử lý ({agent})...\n📁 {work_dir}"),
             )
             .reply_parameters(ReplyParameters::new(msg_id))
             .await

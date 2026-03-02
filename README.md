@@ -13,7 +13,7 @@ A multi-PC Telegram assistant that turns a group chat into a shared coding works
             │              │
          ┌──▼──┐        ┌──▼──┐
          │ PC1 │        │ PC2 │
-         │codex│        │claude│
+         │claude│        │claude│
          └──┬──┘        └──┬──┘
             │              │
    PC1 claims first ───────┘ PC2 skips
@@ -36,11 +36,11 @@ If a PC is offline, another PC picks up the task automatically.
 Each PC configures a priority list of AI agents. The bot picks the first one that's actually installed:
 
 ```
-PC1: ["codex", "claude", "antigravity"]  →  uses codex (installed)
-PC2: ["claude", "antigravity"]           →  uses claude (installed)
+PC1: ["claude"]  →  uses claude (installed)
+PC2: ["claude"]  →  uses claude (installed)
 ```
 
-Supported agents: `codex`, `claude`, `antigravity`
+Supported agents: `claude`
 
 ## Commands
 
@@ -48,23 +48,23 @@ Supported agents: `codex`, `claude`, `antigravity`
 
 | Message | Action |
 |---------|--------|
-| `fix bug in main.rs` | One PC claims and runs with best available agent |
+| `@bot ai fix bug in main.rs` | That specific bot runs with agent |
 
 ### Shell Commands (mention bot)
 
 | Message | Action |
 |---------|--------|
-| `@bot ls -la` | That specific bot runs the shell command |
+| `@bot exec ls -la` | That specific bot runs the shell command |
 | `@bot cd /path` | Changes the bot's working directory (persisted) |
 
 ### System Commands
 
 | Message | Action |
 |---------|--------|
-| `/status@pc1` | PC1 replies with status info |
-| `/status *` | All PCs reply |
-| `/cancel@pc1` | Cancel running task on PC1 |
-| `/help` | All bots reply with help |
+| `@bot status` | Bot replies with status info |
+| `@all status` | All PCs reply |
+| `@bot cancel` | Cancel running task on That specific PC |
+| `@bot help` | Bot replies with help |
 
 ## Project Structure
 
@@ -101,8 +101,7 @@ icode setup
 
 ```bash
 icode run       # Start listening to the group chat
-icode setup     # Interactive configuration
-icode init      # Install SKILL.md into current workspace
+icode setup     # Interactive configuration + installs SKILL.md to work_dir
 ```
 
 ## Configuration
@@ -116,7 +115,7 @@ Stored at `~/.config/icode/config.json` (Linux):
   "owner_ids": [123456789],
   "pc_name": "desktop-home",
   "work_dir": "/home/user/projects",
-  "agent_priority": ["codex", "claude", "antigravity"],
+  "agent_priority": ["claude"],
   "shell_timeout_secs": 300,
   "agent_timeout_secs": 600,
   "claim_delay_max_ms": 1000
@@ -149,7 +148,7 @@ Task file:
   "id": "uuid",
   "prompt": "fix bug in main.rs",
   "work_dir": "/home/user/project",
-  "agent": "codex",
+  "agent": "claude",
   "created_at": "2026-03-02T10:30:00Z"
 }
 ```

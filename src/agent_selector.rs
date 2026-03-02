@@ -1,9 +1,5 @@
 /// Mapping agent name → binary name in PATH
-const AGENT_BINARIES: &[(&str, &str)] = &[
-    ("codex", "codex"),
-    ("claude", "claude"),
-    ("antigravity", "antigravity"),
-];
+const AGENT_BINARIES: &[(&str, &str)] = &[("claude", "claude")];
 
 /// Get the binary name for an agent
 pub fn get_binary_name(agent: &str) -> Option<&'static str> {
@@ -47,14 +43,12 @@ pub fn get_agent_command(
     let binary = get_binary_name(agent)?;
     let prompt = format!("Read SKILL.md at {skill_path}, then execute task at {task_file_path}");
     let args = match agent {
-        "codex" => vec![binary.to_string(), "-q".to_string(), prompt],
         "claude" => vec![
             binary.to_string(),
             "-p".to_string(),
             "--dangerously-skip-permissions".to_string(),
             prompt,
         ],
-        "antigravity" => vec![binary.to_string(), "chat".to_string(), prompt],
         _ => return None,
     };
     Some(args)

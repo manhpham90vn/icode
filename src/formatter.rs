@@ -2,12 +2,18 @@
 const MAX_MSG_LEN: usize = 4096;
 
 /// Format command result for Telegram
-pub fn format_result(pc_name: &str, label: &str, output: &str, work_dir: &str) -> Vec<String> {
-    let header = format!("[{pc_name} · {label}]\n📁 {work_dir}");
+pub fn format_result(
+    pc_name: &str,
+    label: &str,
+    command: &str,
+    output: &str,
+    work_dir: &str,
+) -> Vec<String> {
+    let header = format!("🖥️ *{pc_name}* — `{label}`\n📁 `{work_dir}`\n⚡ `{command}`");
     let body = if output.is_empty() {
-        format!("{header}\n(no output)")
+        format!("{header}\n\n_(no output)_")
     } else {
-        format!("{header}\n```\n{}\n```", truncate_output(output))
+        format!("{header}\n\n```shell\n{}\n```", truncate_output(output))
     };
     split_message(&body, MAX_MSG_LEN)
 }
@@ -56,16 +62,19 @@ pub fn format_status(
 /// Format help text
 pub fn format_help(pc_name: &str, bot_username: &str) -> String {
     format!(
-        "📖 *Help \\— {pc_name}*\n\n\
-         *Shell \\(mention bot\\):*\n\
-         `@{bot_username} ls \\-la` \\— chạy shell\n\
-         `@{bot_username} cd /path` \\— đổi work dir\n\n\
-         *Agent task \\(queue/claim\\):*\n\
-         `fix bug in main\\.rs` \\— 1 PC claim \\+ auto agent\n\n\
-         *Hệ thống:*\n\
-         `/status@{pc_name}` hoặc `/status \\*`\n\
-         `/cancel@{pc_name}`\n\
-         `/help`"
+        r#"📖 *Help — {pc_name}*
+
+*Shell \(mention bot\):*
+`@{bot_username} exec ls \-la` — chạy shell
+`@{bot_username} cd /path` — đổi work dir
+
+*Agent task:*
+`@{bot_username} ai fix bug` — target AI task
+
+*Hệ thống:*
+`@{bot_username} status` hoặc `@all status`
+`@{bot_username} cancel`
+`@{bot_username} help`"#
     )
 }
 

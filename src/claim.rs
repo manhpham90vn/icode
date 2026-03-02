@@ -52,7 +52,10 @@ pub async fn try_claim(
 
     // 2. Check if already claimed
     if tracker.is_claimed(msg_id.0).await {
-        info!(msg_id = msg_id.0, "Already claimed by another bot, skipping");
+        info!(
+            msg_id = msg_id.0,
+            "Already claimed by another bot, skipping"
+        );
         return Ok(None);
     }
 

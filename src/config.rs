@@ -96,8 +96,7 @@ pub fn setup() -> Result<()> {
     } else {
         work_dir
     };
-    let agents_input =
-        prompt("Agent priority (phân cách bằng dấu phẩy, vd: codex,claude,antigravity)")?;
+    let agents_input = prompt("Agent priority (phân cách bằng dấu phẩy, vd: claude)")?;
     let agent_priority: Vec<String> = agents_input
         .split(',')
         .map(|s| s.trim().to_string())
@@ -120,6 +119,19 @@ pub fn setup() -> Result<()> {
     println!("\n✅ Config saved to {}", Config::config_path()?.display());
     println!("   PC name: {pc_name}");
     println!("   Agents: {:?}", config.agent_priority);
+
+    // Auto-install SKILL.md to the selected work_dir
+    let skill_dir = std::path::PathBuf::from(&config.work_dir).join(".agent/skills/icode");
+    if let Err(e) = std::fs::create_dir_all(&skill_dir) {
+        println!("⚠️ Warning: Failed to create skill directory: {e}");
+    } else {
+        let skill_path = skill_dir.join("SKILL.md");
+        match std::fs::write(&skill_path, include_str!("../skill/SKILL.md")) {
+            Ok(_) => println!("✅ Installed SKILL.md at {}", skill_path.display()),
+            Err(e) => println!("⚠️ Warning: Failed to write SKILL.md: {e}"),
+        }
+    }
+
     Ok(())
 }
 
