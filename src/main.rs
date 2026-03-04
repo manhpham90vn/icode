@@ -10,9 +10,9 @@ use clap::Parser;
 #[derive(Parser)]
 #[command(name = "icode", version, about = "Multi-PC Telegram Assistant")]
 enum Cli {
-    /// Chạy bot, lắng nghe group chat
+    /// Run bot, listen to group chat
     Run,
-    /// Interactive setup (token, chat ID, tên PC, agent priority)
+    /// Interactive setup (token, chat ID, PC name, agent priority)
     Setup,
 }
 

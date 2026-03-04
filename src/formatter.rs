@@ -79,16 +79,16 @@ pub fn format_help(pc_name: &str, bot_username: &str) -> String {
     format!(
         r#"📖 *Help — {pc_name}*
 
-*AI Agent \(mặc định\):*
-Gửi trực tiếp: `fix bug in main.rs`
-Hoặc mention: `@{bot_username} fix bug in main.rs`
+*AI Agent (default):*
+Send directly: `fix bug in main.rs`
+Or mention: `@{bot_username} fix bug in main.rs`
 
-*Shell \(mention bot\):*
-`@{bot_username} exec ls \-la` — chạy shell
-`@{bot_username} cd /path` — đổi work dir
+*Shell (mention bot):*
+`@{bot_username} exec ls \-la` — run shell
+`@{bot_username} cd /path` — change work dir
 
-*Hệ thống:*
-`@{bot_username} status` hoặc `@all status`
+*System:*
+`@{bot_username} status` or `@all status`
 `@{bot_username} cancel`
 `@{bot_username} help`"#
     )

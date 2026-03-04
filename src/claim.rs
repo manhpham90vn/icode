@@ -60,7 +60,7 @@ pub async fn try_claim(
     }
 
     // 3. Send claim reply
-    let claim_text = format!("{CLAIM_PREFIX} [{pc_name}] đang xử lý ({agent_name})...");
+    let claim_text = format!("{CLAIM_PREFIX} [{pc_name}] processing ({agent_name})...");
     let claim_msg = bot
         .send_message(chat_id, &claim_text)
         .reply_parameters(ReplyParameters::new(msg_id))

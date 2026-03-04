@@ -134,9 +134,7 @@ fn parse_command(text: &str, bot_username: &str, msg: &Message) -> ParsedCommand
         }
 
         // Any other text after mention → treat as AI prompt (default behavior)
-        return ParsedCommand::AgentQueue {
-            prompt: command,
-        };
+        return ParsedCommand::AgentQueue { prompt: command };
     }
 
     // No mention but has text → treat as AI prompt (default behavior)
@@ -278,7 +276,7 @@ async fn handle_message(
                         .send_message(
                             chat_id,
                             format!(
-                                "❌ [{pc_name}] Path không tồn tại: {}",
+                                "❌ [{pc_name}] Path does not exist: {}",
                                 target_path.display()
                             ),
                         )
@@ -301,7 +299,7 @@ async fn handle_message(
             let _ = bot
                 .send_message(
                     chat_id,
-                    format!("📁 [{pc_name}] đã đổi work_dir sang:\n{}", new_dir),
+                    format!("📁 [{pc_name}] Changed work_dir to:\n{}", new_dir),
                 )
                 .reply_parameters(ReplyParameters::new(msg.id))
                 .await;
@@ -538,7 +536,7 @@ async fn handle_agent(
         match bot
             .send_message(
                 chat_id,
-                format!("🔒 [{pc_name}] đang xử lý ({agent})...\n📁 {work_dir}"),
+                format!("🔒 [{pc_name}] processing ({agent})...\n📁 {work_dir}"),
             )
             .reply_parameters(ReplyParameters::new(msg_id))
             .await
@@ -555,14 +553,16 @@ async fn handle_agent(
         Ok(summary) => {
             let escaped_summary = formatter::escape_markdown(&summary);
             let escaped_work_dir = formatter::escape_markdown(work_dir);
-            let result_text = format!("✅ [{pc_name} · {agent}]\n📁 {escaped_work_dir}\n{escaped_summary}");
+            let result_text =
+                format!("✅ [{pc_name} · {agent}]\n📁 {escaped_work_dir}\n{escaped_summary}");
             let _ = claim::update_claim(bot, &status_msg, &result_text).await;
         }
         Err(e) => {
             let error_str = format!("{e}");
             let escaped_error = formatter::escape_markdown(&error_str);
             let escaped_work_dir = formatter::escape_markdown(work_dir);
-            let error_text = format!("❌ [{pc_name} · {agent}]\n📁 {escaped_work_dir}\nError: {escaped_error}");
+            let error_text =
+                format!("❌ [{pc_name} · {agent}]\n📁 {escaped_work_dir}\nError: {escaped_error}");
             let _ = claim::update_claim(bot, &status_msg, &error_text).await;
         }
     }

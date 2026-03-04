@@ -71,10 +71,10 @@ pub fn setup() -> Result<()> {
     println!("🔧 iCode Setup\n");
 
     let bot_token = prompt("Telegram Bot Token")?;
-    let chat_id: i64 = prompt("Group Chat ID (số âm, vd: -100123456789)")?.parse()?;
+    let chat_id: i64 = prompt("Group Chat ID (negative, e.g., -100123456789)")?.parse()?;
     let owner_id: i64 = prompt("Owner Telegram User ID")?.parse()?;
     let pc_name = prompt(&format!(
-        "Tên PC [{}]",
+        "PC name [{}]",
         gethostname::gethostname().to_string_lossy()
     ))?;
     let pc_name = if pc_name.is_empty() {
@@ -83,7 +83,7 @@ pub fn setup() -> Result<()> {
         pc_name
     };
     let work_dir = prompt(&format!(
-        "Work dir mặc định [{}]",
+        "Default work dir [{}]",
         std::env::current_dir()
             .unwrap_or_else(|_| std::path::PathBuf::from("."))
             .display()
@@ -96,7 +96,7 @@ pub fn setup() -> Result<()> {
     } else {
         work_dir
     };
-    let agents_input = prompt("Agent priority (phân cách bằng dấu phẩy, vd: claude)")?;
+    let agents_input = prompt("Agent priority (comma-separated, e.g., claude)")?;
     let agent_priority: Vec<String> = agents_input
         .split(',')
         .map(|s| s.trim().to_string())
